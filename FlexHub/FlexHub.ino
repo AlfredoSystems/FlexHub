@@ -25,7 +25,7 @@
 #include <Alfredo_NoU3.h>
 
 // --- Configuration ---
-static const uint16_t LED_COUNT      = 30;  // adjust to your strip length
+static const uint16_t LED_COUNT      = 60;  // adjust to your strip length
 static const uint8_t  LED_PIN        = 8;
 static const uint8_t  SENSOR_COUNT   = 4;
 static const uint8_t  SENSOR_PINS[SENSOR_COUNT] = {4, 5, 6, 7};
