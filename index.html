@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlexHub Controller</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #111418;
+      --surface: #1c2128;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #7d8590;
+      --accent:  #2f81f7;
+      --green:   #3fb950;
+      --red:     #f85149;
+      --yellow:  #d29922;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      gap: 1.5rem;
+    }
+
+    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.05em; }
+    h2 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+         letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .dot.connected { background: var(--green); }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.5rem 1.1rem;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+    button:hover:not(:disabled) { background: #2d333b; border-color: var(--accent); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover:not(:disabled) { background: #388bfd; border-color: #388bfd; }
+    button.active {
+      background: #0d419d;
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.active.led-red    { background: #7a1212; border-color: #f85149; }
+    button.active.led-blue   { background: #0d2d6b; border-color: #4f9eff; }
+    button.active.led-green  { background: #0d4a1f; border-color: #3fb950; }
+    button.active.led-purple { background: #3b1a6b; border-color: #a371f7; }
+    button.danger { background: var(--red); border-color: var(--red); color: #fff; }
+    button.danger:hover:not(:disabled) { background: #ff6b6b; }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .ball-display {
+      font-size: 4rem;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin: 0.5rem 0 1rem;
+      color: var(--accent);
+      transition: transform 0.1s;
+    }
+    .ball-display.bump { transform: scale(1.15); }
+
+    .note {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>FlexHub</h1>
+
+  <!-- Connection -->
+  <div class="card">
+    <h2>Serial</h2>
+    <div class="status-row">
+      <div class="dot" id="dot"></div>
+      <span id="status-text">Not connected</span>
+    </div>
+    <div class="btn-row" style="margin-top:0.75rem;">
+      <button class="primary" id="btn-connect" onclick="connect()">Connect</button>
+      <button id="btn-disconnect" disabled onclick="disconnect()">Disconnect</button>
+    </div>
+    <p class="note">Requires Chrome or Edge. Connect the ESP32 via USB, then click Connect.</p>
+  </div>
+
+  <!-- Ball Counter -->
+  <div class="card">
+    <h2>Ball Count</h2>
+    <div class="ball-display" id="ball-count">0</div>
+    <div class="btn-row">
+      <button onclick="resetCount()">Reset</button>
+    </div>
+  </div>
+
+  <!-- LEDs -->
+  <div class="card">
+    <h2>LEDs</h2>
+    <div class="btn-row" style="margin-bottom:0.5rem;">
+      <button id="led-red"    class="led-red"    disabled onclick="sendLed('RED')">Red</button>
+      <button id="led-blue"   class="led-blue"   disabled onclick="sendLed('BLUE')">Blue</button>
+      <button id="led-green"  class="led-green"  disabled onclick="sendLed('GREEN')">Green</button>
+      <button id="led-purple" class="led-purple" disabled onclick="sendLed('PURPLE')">Purple</button>
+      <button id="led-off"                       disabled onclick="sendLed('OFF')">Off</button>
+    </div>
+    <div class="btn-row" style="margin-bottom:0.5rem;">
+      <button id="led-chase_red"  class="led-red"  disabled onclick="sendLed('CHASE_RED')">Chase Red</button>
+      <button id="led-chase_blue" class="led-blue" disabled onclick="sendLed('CHASE_BLUE')">Chase Blue</button>
+    </div>
+    <div class="btn-row">
+      <button id="led-pulse_red"  class="led-red"  disabled onclick="sendLed('PULSE_RED')">Pulse Red</button>
+      <button id="led-pulse_blue" class="led-blue" disabled onclick="sendLed('PULSE_BLUE')">Pulse Blue</button>
+    </div>
+  </div>
+
+  <!-- Motors -->
+  <div class="card">
+    <h2>Motors</h2>
+    <div class="btn-row">
+      <button id="motor-on"  disabled onclick="sendMotor('ON')">On</button>
+      <button id="motor-off" disabled onclick="sendMotor('OFF')">Off</button>
+    </div>
+  </div>
+
+  <script>
+    let port     = null;
+    let reader   = null;
+    let rxBuffer = '';
+    let ballCount = 0;
+
+    // ---- UI helpers --------------------------------------------------------
+
+    function setConnected(on) {
+      document.getElementById('dot').classList.toggle('connected', on);
+      document.getElementById('status-text').textContent = on ? 'Connected' : 'Not connected';
+      document.getElementById('btn-connect').disabled    = on;
+      document.getElementById('btn-disconnect').disabled = !on;
+      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off'];
+      controls.forEach(id => document.getElementById(id).disabled = !on);
+      if (!on) clearActiveButtons();
+    }
+
+    function clearActiveButtons() {
+      document.querySelectorAll('button.active').forEach(b => b.classList.remove('active'));
+    }
+
+    function setActiveInGroup(group, active) {
+      group.forEach(id => document.getElementById(id).classList.remove('active'));
+      if (active) document.getElementById(active).classList.add('active');
+    }
+
+    function updateBallDisplay() {
+      const el = document.getElementById('ball-count');
+      el.textContent = ballCount;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 120);
+    }
+
+    // ---- Serial ------------------------------------------------------------
+
+    async function connect() {
+      if (!('serial' in navigator)) {
+        alert('WebSerial is not supported in this browser. Use Chrome or Edge.');
+        return;
+      }
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        setConnected(true);
+        readLoop();
+      } catch (err) {
+        console.error('Connect failed:', err);
+        port = null;
+      }
+    }
+
+    async function disconnect() {
+      if (reader) {
+        try { await reader.cancel(); } catch (_) {}
+        reader = null;
+      }
+      if (port) {
+        try { await port.close(); } catch (_) {}
+        port = null;
+      }
+      rxBuffer = '';
+      setConnected(false);
+    }
+
+    async function readLoop() {
+      const decoder = new TextDecoder();
+      while (port && port.readable) {
+        reader = port.readable.getReader();
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            rxBuffer += decoder.decode(value, { stream: true });
+            const lines = rxBuffer.split('\n');
+            rxBuffer = lines.pop();
+            lines.forEach(line => processLine(line.trim()));
+          }
+        } catch (err) {
+          // port closed or cancelled
+        } finally {
+          reader.releaseLock();
+          reader = null;
+        }
+      }
+      setConnected(false);
+    }
+
+    function processLine(line) {
+      if (line === 'EVT:BALL') {
+        ballCount++;
+        updateBallDisplay();
+      }
+    }
+
+    async function send(cmd) {
+      if (!port || !port.writable) return;
+      const writer = port.writable.getWriter();
+      try {
+        await writer.write(new TextEncoder().encode(cmd + '\n'));
+      } finally {
+        writer.releaseLock();
+      }
+    }
+
+    // ---- Controls ----------------------------------------------------------
+
+    const LED_BTNS = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue'];
+
+    function sendLed(mode) {
+      send('CMD:LED:' + mode);
+      setActiveInGroup(LED_BTNS, 'led-' + mode.toLowerCase());
+    }
+
+    function sendMotor(state) {
+      send('CMD:MOTOR:' + state);
+      setActiveInGroup(['motor-on','motor-off'], 'motor-' + state.toLowerCase());
+    }
+
+    function resetCount() {
+      ballCount = 0;
+      document.getElementById('ball-count').textContent = '0';
+    }
+  </script>
+</body>
+</html>
