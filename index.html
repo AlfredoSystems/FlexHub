@@ -173,6 +173,29 @@
     </div>
   </div>
 
+  <!-- Display -->
+  <div class="card">
+    <h2>Display</h2>
+    <div style="display:flex;gap:2rem;align-items:flex-end;">
+      <div>
+        <div class="slider-label" style="margin-bottom:0.4rem;"><span>Shift</span></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <button id="shift-dec" disabled onclick="adjustShift(-1)">−</button>
+          <span id="shift-val" style="font-size:1.6rem;font-weight:700;min-width:1.2rem;text-align:center;font-variant-numeric:tabular-nums;">0</span>
+          <button id="shift-inc" disabled onclick="adjustShift(1)">+</button>
+        </div>
+      </div>
+      <div>
+        <div class="slider-label" style="margin-bottom:0.4rem;"><span>Clock</span></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <button id="clock-dec" disabled onclick="adjustClock(-1)">−</button>
+          <span id="clock-val" style="font-size:1.6rem;font-weight:700;min-width:2rem;text-align:center;font-variant-numeric:tabular-nums;">00</span>
+          <button id="clock-inc" disabled onclick="adjustClock(1)">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let port     = null;
     let reader   = null;
@@ -186,7 +209,7 @@
       document.getElementById('status-text').textContent = on ? 'Connected' : 'Not connected';
       document.getElementById('btn-connect').disabled    = on;
       document.getElementById('btn-disconnect').disabled = !on;
-      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off'];
+      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off','shift-dec','shift-inc','clock-dec','clock-inc'];
       controls.forEach(id => document.getElementById(id).disabled = !on);
       if (!on) clearActiveButtons();
     }
@@ -295,6 +318,23 @@
     function resetCount() {
       ballCount = 0;
       document.getElementById('ball-count').textContent = '0';
+    }
+
+    // ---- Display -------------------------------------------------------------
+
+    let shiftVal = 0;
+    let clockVal = 0;
+
+    function adjustShift(delta) {
+      shiftVal = Math.max(0, Math.min(9, shiftVal + delta));
+      document.getElementById('shift-val').textContent = shiftVal;
+      send('CMD:DISPLAY:SHIFT:' + shiftVal);
+    }
+
+    function adjustClock(delta) {
+      clockVal = Math.max(0, Math.min(99, clockVal + delta));
+      document.getElementById('clock-val').textContent = String(clockVal).padStart(2, '0');
+      send('CMD:DISPLAY:CLOCK:' + clockVal);
     }
   </script>
 </body>

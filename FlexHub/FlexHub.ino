@@ -13,8 +13,10 @@
  *   CMD:LED:CHASE_BLUE — solid blue + white comet chase
  *   CMD:LED:PULSE_RED  — heartbeat pulse, red
  *   CMD:LED:PULSE_BLUE — heartbeat pulse, blue
- *   CMD:MOTOR:ON       — motors on (full forward)
- *   CMD:MOTOR:OFF      — motors off
+ *   CMD:MOTOR:ON            — motors on (full forward)
+ *   CMD:MOTOR:OFF           — motors off
+ *   CMD:DISPLAY:SHIFT:n     — leftmost digit, 0–9
+ *   CMD:DISPLAY:CLOCK:nn    — rightmost two digits, 0–99
  *
  * ESP32 → HTML:
  *   EVT:BALL           — one ball counted (sent once per beam-break falling edge)
@@ -23,12 +25,13 @@
 #include "USB.h"
 #include <FastLED.h>
 #include <Alfredo_NoU3.h>
+#include <Wire.h>
 
 // --- Configuration ---
 static const uint16_t LED_COUNT      = 60;  // adjust to your strip length
 static const uint8_t  LED_PIN        = 8;
-static const uint8_t  SENSOR_COUNT   = 4;
-static const uint8_t  SENSOR_PINS[SENSOR_COUNT] = {4, 5, 6, 7};
+static const uint8_t  SENSOR_COUNT   = 2;
+static const uint8_t  SENSOR_PINS[SENSOR_COUNT] = {4, 5};
 static const uint32_t DEBOUNCE_MS    = 50;
 static const uint32_t CHASE_STEP_MS  = 35;  // ms per chase frame
 static const uint8_t  TAIL_LENGTH    = 12;  // white comet tail pixels
@@ -60,6 +63,16 @@ uint32_t lastChaseStep = 0;
 // --- Pulse animation state ---
 CRGB     pulseColor    = CRGB::Red;
 uint32_t lastPulseStep = 0;
+
+// --- HT16K33 display ---
+// Layout: [SHIFT] [off] [CLOCK tens] [CLOCK ones]  — digit 1 and colon always dark
+static const uint8_t  HT16K33_ADDR = 0x70;
+static const uint8_t  SEG7[10] = {
+    0x3F, 0x06, 0x5B, 0x4F, 0x66,   // 0–4
+    0x6D, 0x7D, 0x07, 0x7F, 0x6F    // 5–9
+};
+uint8_t displayShift = 0;  // 0–9
+uint8_t displayClock = 0;  // 0–99
 
 // --- Serial buffer ---
 String serialBuffer = "";
@@ -135,6 +148,38 @@ void updatePulse() {
 }
 
 // ---------------------------------------------------------------------------
+// HT16K33 display
+
+void displayInit() {
+    Wire.beginTransmission(HT16K33_ADDR);
+    Wire.write(0x21);                    // oscillator on
+    Wire.endTransmission();
+
+    Wire.beginTransmission(HT16K33_ADDR);
+    Wire.write(0x81);                    // display on, no blink
+    Wire.endTransmission();
+
+    Wire.beginTransmission(HT16K33_ADDR);
+    Wire.write(0xEF);                    // max brightness
+    Wire.endTransmission();
+
+    displayUpdate();
+}
+
+void displayUpdate() {
+    // HT16K33 RAM: 5 positions × 2 bytes = 10 bytes
+    // pos 0=digit0, pos 1=digit1, pos 2=colon, pos 3=digit2, pos 4=digit3
+    Wire.beginTransmission(HT16K33_ADDR);
+    Wire.write(0x00);                          // start at RAM address 0
+    Wire.write(SEG7[displayShift]); Wire.write(0x00); // digit 0: SHIFT
+    Wire.write(0x00);               Wire.write(0x00); // digit 1: always off
+    Wire.write(0x00);               Wire.write(0x00); // colon:   always off
+    Wire.write(SEG7[displayClock / 10]); Wire.write(0x00); // digit 2: clock tens
+    Wire.write(SEG7[displayClock % 10]); Wire.write(0x00); // digit 3: clock ones
+    Wire.endTransmission();
+}
+
+// ---------------------------------------------------------------------------
 
 void setMotors(bool on) {
     float speed = on ? 1.0f : 0.0f;
@@ -154,6 +199,14 @@ void processCommand(const String& cmd) {
     else if (cmd == "CMD:LED:PULSE_BLUE") { currentLedMode = LED_PULSE_BLUE; startPulse(CRGB::Blue);     }
     else if (cmd == "CMD:MOTOR:ON")       { setMotors(true);  }
     else if (cmd == "CMD:MOTOR:OFF")      { setMotors(false); }
+    else if (cmd.startsWith("CMD:DISPLAY:SHIFT:")) {
+        displayShift = (uint8_t)constrain(cmd.substring(18).toInt(), 0, 9);
+        displayUpdate();
+    }
+    else if (cmd.startsWith("CMD:DISPLAY:CLOCK:")) {
+        displayClock = (uint8_t)constrain(cmd.substring(18).toInt(), 0, 99);
+        displayUpdate();
+    }
 }
 
 void readSerial() {
@@ -186,23 +239,27 @@ void checkSensors() {
 // ---------------------------------------------------------------------------
 
 void setup() {
-    USB.productName("FlexHub");
-    USB.begin();
     Serial.begin(115200);
 
-    NoU3.begin();
+    Wire.begin(6, 7, 100000);
+    Wire1.begin(PIN_I2C_SDA_IMU, PIN_I2C_SCL_IMU, 400000);
+    
+    NoU3.beginMotors();
+    NoU3.beginServiceLight();
+    NoU3.setServiceLight(LIGHT_ENABLED);
 
     FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT);
     FastLED.setBrightness(255);
     FastLED.show();
 
     for (uint8_t i = 0; i < SENSOR_COUNT; i++) {
-        pinMode(SENSOR_PINS[i], INPUT_PULLUP);
+        pinMode(SENSOR_PINS[i], INPUT_PULLDOWN);
         lastSensorState[i] = (bool)digitalRead(SENSOR_PINS[i]);
         lastChangeTime[i]  = 0;
     }
 
     setMotors(false);
+    displayInit();
 }
 
 void loop() {
