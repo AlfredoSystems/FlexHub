@@ -115,6 +115,25 @@
       margin-top: 1rem;
       line-height: 1.5;
     }
+
+    input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 1.6rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      padding: 0.25rem 0.5rem;
+      width: 5.5rem;
+      text-align: center;
+      -moz-appearance: textfield;
+      transition: border-color 0.15s, opacity 0.15s;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type="number"]:focus { outline: none; border-color: var(--accent); }
+    input[type="number"]:disabled { opacity: 0.4; cursor: default; }
   </style>
 </head>
 <body>
@@ -178,20 +197,12 @@
     <h2>Display</h2>
     <div style="display:flex;gap:2rem;align-items:flex-end;">
       <div>
-        <div class="slider-label" style="margin-bottom:0.4rem;"><span>Shift</span></div>
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <button id="shift-dec" disabled onclick="adjustShift(-1)">−</button>
-          <span id="shift-val" style="font-size:1.6rem;font-weight:700;min-width:1.2rem;text-align:center;font-variant-numeric:tabular-nums;">0</span>
-          <button id="shift-inc" disabled onclick="adjustShift(1)">+</button>
-        </div>
+        <label for="shift-input" style="display:block;font-size:0.75rem;color:var(--muted);margin-bottom:0.4rem;">Shift</label>
+        <input type="number" id="shift-input" min="0" max="9" value="0" disabled oninput="onShiftChange(this)">
       </div>
       <div>
-        <div class="slider-label" style="margin-bottom:0.4rem;"><span>Clock</span></div>
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <button id="clock-dec" disabled onclick="adjustClock(-1)">−</button>
-          <span id="clock-val" style="font-size:1.6rem;font-weight:700;min-width:2rem;text-align:center;font-variant-numeric:tabular-nums;">00</span>
-          <button id="clock-inc" disabled onclick="adjustClock(1)">+</button>
-        </div>
+        <label for="clock-input" style="display:block;font-size:0.75rem;color:var(--muted);margin-bottom:0.4rem;">Clock</label>
+        <input type="number" id="clock-input" min="0" max="99" value="0" disabled oninput="onClockChange(this)">
       </div>
     </div>
   </div>
@@ -209,7 +220,7 @@
       document.getElementById('status-text').textContent = on ? 'Connected' : 'Not connected';
       document.getElementById('btn-connect').disabled    = on;
       document.getElementById('btn-disconnect').disabled = !on;
-      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off','shift-dec','shift-inc','clock-dec','clock-inc'];
+      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off','shift-input','clock-input'];
       controls.forEach(id => document.getElementById(id).disabled = !on);
       if (!on) clearActiveButtons();
     }
@@ -249,36 +260,41 @@
     }
 
     async function disconnect() {
-      if (reader) {
-        try { await reader.cancel(); } catch (_) {}
-        reader = null;
-      }
-      if (port) {
-        try { await port.close(); } catch (_) {}
-        port = null;
-      }
+      const r = reader;
+      const p = port;
+      reader = null;
+      port   = null;
       rxBuffer = '';
       setConnected(false);
+
+      // Must release lock before closing port, otherwise WebSerial crashes.
+      if (r) {
+        try { await r.cancel(); }    catch (_) {}
+        try { r.releaseLock(); }     catch (_) {}
+      }
+      if (p) {
+        try { await p.close(); }     catch (_) {}
+      }
     }
 
     async function readLoop() {
       const decoder = new TextDecoder();
       while (port && port.readable) {
-        reader = port.readable.getReader();
+        const localReader = port.readable.getReader();
+        reader = localReader;
         try {
           while (true) {
-            const { value, done } = await reader.read();
+            const { value, done } = await localReader.read();
             if (done) break;
             rxBuffer += decoder.decode(value, { stream: true });
             const lines = rxBuffer.split('\n');
             rxBuffer = lines.pop();
             lines.forEach(line => processLine(line.trim()));
           }
-        } catch (err) {
-          // port closed or cancelled
-        } finally {
-          reader.releaseLock();
-          reader = null;
+        } catch (_) {}
+        finally {
+          try { localReader.releaseLock(); } catch (_) {}
+          if (reader === localReader) reader = null;
         }
       }
       setConnected(false);
@@ -322,19 +338,16 @@
 
     // ---- Display -------------------------------------------------------------
 
-    let shiftVal = 0;
-    let clockVal = 0;
-
-    function adjustShift(delta) {
-      shiftVal = Math.max(0, Math.min(9, shiftVal + delta));
-      document.getElementById('shift-val').textContent = shiftVal;
-      send('CMD:DISPLAY:SHIFT:' + shiftVal);
+    function onShiftChange(el) {
+      const v = Math.max(0, Math.min(9, parseInt(el.value, 10) || 0));
+      el.value = v;
+      send('CMD:DISPLAY:SHIFT:' + v);
     }
 
-    function adjustClock(delta) {
-      clockVal = Math.max(0, Math.min(99, clockVal + delta));
-      document.getElementById('clock-val').textContent = String(clockVal).padStart(2, '0');
-      send('CMD:DISPLAY:CLOCK:' + clockVal);
+    function onClockChange(el) {
+      const v = Math.max(0, Math.min(99, parseInt(el.value, 10) || 0));
+      el.value = v;
+      send('CMD:DISPLAY:CLOCK:' + v);
     }
   </script>
 </body>
