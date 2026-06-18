@@ -17,27 +17,28 @@
  *   CMD:MOTOR:OFF           — motors off
  *   CMD:DISPLAY:SHIFT:n     — leftmost digit, 0–9
  *   CMD:DISPLAY:CLOCK:nn    — rightmost two digits, 0–99
- *   CMD:DEBUG:ON            — enable debug mode (raw edge events)
+ *   CMD:DEBUG:ON            — enable debug mode (streams DBG: packets + raw edge events)
  *   CMD:DEBUG:OFF           — disable debug mode
+ *   CMD:SENSOR:ALPHA:x.xxx      — EMA smoothing factor (0.001–1.0), saved to NVS
+ *   CMD:SENSOR:HYSTERESIS:x.xxx — Schmitt band half-width around 50% (0.0–0.45), saved to NVS
  *
  * ESP32 → HTML:
- *   EVT:BALL           — one ball counted (filtered rises back above 50% — sensor returns HIGH after ball passes)
- *   EVT:BALL_RISE      — raw sensor rising edge  (debug mode only)
- *   EVT:BALL_FALL      — raw sensor falling edge (debug mode only)
+ *   EVT:BALL                — one ball counted (filtered output rising edge)
+ *   DBG:raw,filtered,output — 200 Hz sensor stream (debug mode only)
  */
 
 #include "USB.h"
 #include <FastLED.h>
 #include <Alfredo_NoU3.h>
 #include <Wire.h>
+#include <Preferences.h>
 
 // --- Configuration ---
-static const uint16_t LED_COUNT = 60;  // adjust to your strip length
-static const uint8_t LED_PIN = 8;
+static const uint16_t LED_COUNT = 98 + 4;  // adjust to your strip length
+static const uint8_t LED_PIN = 7;
 static const uint8_t PIN_SENSOR = 9;
 static const uint8_t PIN_I2C_SDA_HK16 = 4;
 static const uint8_t PIN_I2C_SCL_HK16 = 5;
-static const float SENSOR_TAU_US = 50000.0f;  // EMA time constant in microseconds
 static const uint32_t CHASE_STEP_MS = 35;  // ms per chase frame
 static const uint8_t TAIL_LENGTH = 12;     // white comet tail pixels
 static const uint32_t PULSE_STEP_MS = 16;  // ~60fps for smooth pulse
@@ -50,10 +51,11 @@ NoU_Motor motor2(2);
 
 // --- Sensor state ---
 float    sensorFiltered;
-bool     sensorAbove;     // which side of 0.5 the filtered value was on last sample
-uint32_t lastSensorUs;    // micros() at last checkBallSensor call, for dt-aware EMA
-bool     lastRawSensor = false;   // raw sensor state last sample, for debug edge detection
+bool     sensorAbove;
+float    sensorAlpha = 0.110f;       // EMA smoothing factor, loaded from NVS
+float    sensorHysteresis = 0.25f;   // Schmitt band half-width, loaded from NVS
 bool     debugMode = false;
+uint32_t lastDebugStreamUs = 0;
 
 // --- LED mode ---
 enum LedMode {
@@ -114,14 +116,17 @@ void updateChase() {
 
   fill_solid(leds, LED_COUNT, chaseBase);
 
-  for (uint8_t i = 0; i < TAIL_LENGTH; i++) {
-    uint16_t idx = (chaseHead - i + LED_COUNT) % LED_COUNT;
-    // t=255 at head (i=0), t=0 at tail tip — blends white→base color
-    uint8_t t = (uint8_t)(255 * (TAIL_LENGTH - i - 1) / (TAIL_LENGTH - 1));
-    leds[idx] = CRGB(
-      chaseBase.r + (uint8_t)((uint16_t)(255 - chaseBase.r) * t / 255),
-      chaseBase.g + (uint8_t)((uint16_t)(255 - chaseBase.g) * t / 255),
-      chaseBase.b + (uint8_t)((uint16_t)(255 - chaseBase.b) * t / 255));
+  uint8_t number_of_tails = 3;
+  for (uint8_t tail = 0; tail < number_of_tails; tail++) {
+    uint16_t head = (chaseHead + tail * (LED_COUNT / number_of_tails)) % LED_COUNT;
+    for (uint8_t i = 0; i < TAIL_LENGTH; i++) {
+      uint16_t idx = (head - i + LED_COUNT) % LED_COUNT;
+      uint8_t t = (uint8_t)(255 * (TAIL_LENGTH - i - 1) / (TAIL_LENGTH - 1));
+      leds[idx] = CRGB(
+        chaseBase.r + (uint8_t)((uint16_t)(255 - chaseBase.r) * t / 255),
+        chaseBase.g + (uint8_t)((uint16_t)(255 - chaseBase.g) * t / 255),
+        chaseBase.b + (uint8_t)((uint16_t)(255 - chaseBase.b) * t / 255));
+    }
   }
   FastLED.show();
 
@@ -204,6 +209,14 @@ void setMotors(bool on) {
   motor2.set(speed);
 }
 
+void savePrefs() {
+  Preferences prefs;
+  prefs.begin("flexhub", false);
+  prefs.putFloat("alpha", sensorAlpha);
+  prefs.putFloat("hyst",  sensorHysteresis);
+  prefs.end();
+}
+
 void processCommand(const String& cmd) {
   if (cmd == "CMD:LED:OFF") {
     currentLedMode = LED_OFF;
@@ -222,10 +235,10 @@ void processCommand(const String& cmd) {
     applyLedSolid(CRGB::Purple);
   } else if (cmd == "CMD:LED:CHASE_RED") {
     currentLedMode = LED_CHASE_RED;
-    startChase(CRGB::Red);
+    startChase(CRGB(0xFF - 200, 0x00, 0x00)); //Tweaked red to make chase POP
   } else if (cmd == "CMD:LED:CHASE_BLUE") {
     currentLedMode = LED_CHASE_BLUE;
-    startChase(CRGB::Blue);
+    startChase(CRGB(0x00, 0x00, 0xFF - 200)); //Tweaked blue to make chase POP
   } else if (cmd == "CMD:LED:PULSE_RED") {
     currentLedMode = LED_PULSE_RED;
     startPulse(CRGB::Red);
@@ -246,6 +259,12 @@ void processCommand(const String& cmd) {
     debugMode = true;
   } else if (cmd == "CMD:DEBUG:OFF") {
     debugMode = false;
+  } else if (cmd.startsWith("CMD:SENSOR:ALPHA:")) {
+    sensorAlpha = constrain(cmd.substring(17).toFloat(), 0.001f, 1.0f);
+    savePrefs();
+  } else if (cmd.startsWith("CMD:SENSOR:HYSTERESIS:")) {
+    sensorHysteresis = constrain(cmd.substring(22).toFloat(), 0.0f, 0.45f);
+    savePrefs();
   }
 }
 
@@ -263,24 +282,28 @@ void readSerial() {
 }
 
 void checkBallSensor() {
-  uint32_t now = micros();
-  float dt = (float)(now - lastSensorUs);
-  lastSensorUs = now;
-
   bool raw = (bool)digitalRead(PIN_SENSOR);
 
-  if (debugMode && raw != lastRawSensor) {
-    Serial.println(raw ? "EVT:BALL_RISE" : "EVT:BALL_FALL");
-  }
-  lastRawSensor = raw;
+  sensorFiltered = sensorAlpha * (raw ? 1.0f : 0.0f) + (1.0f - sensorAlpha) * sensorFiltered;
 
-  // dt-aware EMA: alpha = dt / (tau + dt)
-  float alpha = dt / (SENSOR_TAU_US + dt);
-  sensorFiltered = alpha * (raw ? 1.0f : 0.0f) + (1.0f - alpha) * sensorFiltered;
-
-  bool above = sensorFiltered >= 0.5f;
+  float hi = 0.5f + sensorHysteresis;
+  float lo = 0.5f - sensorHysteresis;
+  bool above = sensorAbove ? (sensorFiltered > lo) : (sensorFiltered >= hi);
   if (above && !sensorAbove) Serial.println("EVT:BALL");
   sensorAbove = above;
+
+  if (debugMode) {
+    uint32_t now = micros();
+    if (now - lastDebugStreamUs >= 100) {
+      lastDebugStreamUs = now;
+      Serial.print("DBG:");
+      Serial.print(raw ? 1 : 0);
+      Serial.print(',');
+      Serial.print(sensorFiltered, 4);
+      Serial.print(',');
+      Serial.println(sensorAbove ? 1 : 0);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -295,15 +318,20 @@ void setup() {
   NoU3.beginServiceLight();
   NoU3.setServiceLight(LIGHT_ENABLED);
 
-  FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT);
+  FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, LED_COUNT);
   FastLED.setBrightness(255);
   FastLED.show();
 
+  Preferences prefs;
+  prefs.begin("flexhub", true);
+  sensorAlpha       = prefs.getFloat("alpha", 0.05f);
+  sensorHysteresis  = prefs.getFloat("hyst",  0.0f);
+  prefs.end();
+
   pinMode(PIN_SENSOR, INPUT_PULLDOWN);
-  lastRawSensor  = (bool)digitalRead(PIN_SENSOR);
-  sensorFiltered = lastRawSensor ? 1.0f : 0.0f;
-  sensorAbove    = lastRawSensor;
-  lastSensorUs   = micros();
+  bool initRaw   = (bool)digitalRead(PIN_SENSOR);
+  sensorFiltered = initRaw ? 1.0f : 0.0f;
+  sensorAbove    = initRaw;
 
   setMotors(false);
   displayInit();
