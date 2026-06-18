@@ -19,193 +19,394 @@
       --yellow:  #d29922;
     }
 
+    html, body { height: 100%; }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
-      gap: 1.5rem;
+      overflow: hidden;
     }
 
-    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.05em; }
-    h2 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
-         letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem; }
+    /* ---- Header ---- */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.55rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .app-header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.05em; flex-shrink: 0; }
+    .header-serial { display: flex; align-items: center; gap: 0.75rem; }
+    .header-note { font-size: 0.7rem; color: var(--muted); }
 
+    /* ---- Main layout ---- */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      overflow: hidden;
+    }
+
+    /* ---- Left column: operational controls ---- */
+    .controls-col {
+      width: 240px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* ---- Right: analysis area ---- */
+    .analysis-area {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow: hidden;
+    }
+
+    /* Filter settings + Waveform */
+    .analysis-bottom {
+      display: flex;
+      gap: 0.75rem;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .filter-col {
+      width: 270px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .waveform-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ---- Card ---- */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 1.25rem 1.5rem;
-      width: 100%;
-      max-width: 420px;
+      padding: 0.9rem 1.1rem;
     }
 
+    h2 {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.6rem;
+    }
+
+    /* ---- Shared controls ---- */
     .status-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-      color: var(--muted);
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.9rem; color: var(--muted);
     }
     .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--red);
-      flex-shrink: 0;
-      transition: background 0.3s;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red); flex-shrink: 0; transition: background 0.3s;
     }
     .dot.connected { background: var(--green); }
 
     button {
-      cursor: pointer;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--bg);
-      color: var(--text);
-      font-size: 0.875rem;
-      font-weight: 500;
-      padding: 0.5rem 1.1rem;
+      cursor: pointer; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg); color: var(--text); font-size: 0.82rem;
+      font-weight: 500; padding: 0.4rem 0.9rem;
       transition: background 0.15s, border-color 0.15s, opacity 0.15s;
     }
     button:hover:not(:disabled) { background: #2d333b; border-color: var(--accent); }
     button:disabled { opacity: 0.4; cursor: default; }
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     button.primary:hover:not(:disabled) { background: #388bfd; border-color: #388bfd; }
-    button.active {
-      background: #0d419d;
-      border-color: var(--accent);
-      color: #fff;
-    }
+    button.active { background: #0d419d; border-color: var(--accent); color: #fff; }
     button.active.led-red    { background: #7a1212; border-color: #f85149; }
     button.active.led-blue   { background: #0d2d6b; border-color: #4f9eff; }
     button.active.led-green  { background: #0d4a1f; border-color: #3fb950; }
     button.active.led-purple { background: #3b1a6b; border-color: #a371f7; }
-    button.danger { background: var(--red); border-color: var(--red); color: #fff; }
-    button.danger:hover:not(:disabled) { background: #ff6b6b; }
 
-    .btn-row {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
+    .btn-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
+    /* ---- Ball display ---- */
     .ball-display {
-      font-size: 4rem;
-      font-weight: 700;
-      text-align: center;
-      letter-spacing: -0.02em;
-      line-height: 1;
-      margin: 0.5rem 0 1rem;
-      color: var(--accent);
-      transition: transform 0.1s;
+      font-size: 3.5rem; font-weight: 700; text-align: center;
+      letter-spacing: -0.02em; line-height: 1;
+      margin: 0.25rem 0 0.6rem; color: var(--accent); transition: transform 0.1s;
     }
     .ball-display.bump { transform: scale(1.15); }
 
-    .note {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 1rem;
-      line-height: 1.5;
-    }
-
+    /* ---- Number inputs (Shift / Clock) ---- */
     input[type="number"] {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 1.6rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      padding: 0.25rem 0.5rem;
-      width: 5.5rem;
-      text-align: center;
-      -moz-appearance: textfield;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 1.5rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; padding: 0.2rem 0.4rem;
+      width: 5rem; text-align: center; -moz-appearance: textfield;
       transition: border-color 0.15s, opacity 0.15s;
     }
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
     input[type="number"]:focus { outline: none; border-color: var(--accent); }
     input[type="number"]:disabled { opacity: 0.4; cursor: default; }
+
+    /* ---- Visualizer ---- */
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 4px;
+      background: var(--border); border-radius: 2px;
+      outline: none; cursor: pointer; margin: 0.25rem 0;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      background: var(--accent); border-radius: 50%; cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px; background: var(--accent);
+      border-radius: 50%; cursor: pointer; border: none;
+    }
+    #viz-alpha-input {
+      width: 4.5rem !important; font-size: 0.85rem !important;
+      padding: 0.2rem 0.4rem !important; font-weight: 600;
+      font-family: monospace; color: var(--accent);
+    }
+
+    .viz-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.6rem; }
+    .viz-metric-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.55rem; }
+    .viz-metric-label { font-size: 0.65rem; color: var(--muted); margin-bottom: 0.1rem; }
+    .viz-metric-value { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .viz-bar-bg   { width: 100%; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 0.3rem; }
+    .viz-bar-fill { height: 100%; background: var(--yellow); border-radius: 3px; width: 0%; transition: width 0.3s; }
+
+    .viz-canvas-wrap {
+      position: relative; flex: 1; min-height: 0;
+      background: #020617; border: 1px solid var(--border); border-radius: 6px;
+      overflow: hidden; user-select: none; cursor: ew-resize;
+      margin-top: 0.5rem;
+    }
+    .viz-canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    #viz-tooltip {
+      position: absolute; display: none; top: 0.4rem; left: 0.4rem;
+      background: rgba(28,33,40,0.96); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.4rem 0.6rem;
+      font-size: 0.7rem; pointer-events: none; min-width: 150px; z-index: 10;
+    }
+    #viz-tooltip .tt-row { display: flex; justify-content: space-between; gap: 0.75rem; }
+    #viz-tooltip .tt-sep { border-bottom: 1px solid var(--border); margin: 0.2rem 0; }
+
+    #viz-no-data {
+      position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center;
+      background: rgba(2,6,23,0.9); color: var(--muted); font-size: 0.82rem;
+    }
+
+    .viz-table-wrap {
+      overflow-x: auto; overflow-y: auto; height: 150px;
+      border: 1px solid var(--border); border-radius: 6px; margin-top: 0.5rem;
+      flex-shrink: 0;
+    }
+    .viz-table { width: 100%; font-size: 0.68rem; font-family: monospace; border-collapse: collapse; }
+    .viz-table th {
+      background: var(--bg); color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; padding: 0.3rem 0.45rem;
+      position: sticky; top: 0; white-space: nowrap; border-bottom: 1px solid var(--border); text-align: left;
+    }
+    .viz-table td { padding: 0.25rem 0.45rem; border-bottom: 1px solid rgba(48,54,61,0.5); color: var(--text); }
+    .viz-table tr:hover td { background: var(--surface); }
+    .viz-badge {
+      display: inline-block; padding: 0.06rem 0.3rem; border-radius: 3px;
+      font-size: 0.63rem; font-weight: 700; border: 1px solid;
+    }
+    .viz-badge-pass   { color: var(--green);  background: rgba(63,185,80,0.1);  border-color: rgba(63,185,80,0.25); }
+    .viz-badge-bounce { color: var(--yellow); background: rgba(210,153,34,0.1); border-color: rgba(210,153,34,0.25); }
+    .viz-badge-rise   { color: #6366f1;       background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.25); }
+    .viz-badge-fall   { color: var(--red);    background: rgba(248,81,73,0.1);  border-color: rgba(248,81,73,0.25); }
   </style>
 </head>
 <body>
 
-  <h1>FlexHub</h1>
-
-  <!-- Connection -->
-  <div class="card">
-    <h2>Serial</h2>
-    <div class="status-row">
-      <div class="dot" id="dot"></div>
-      <span id="status-text">Not connected</span>
-    </div>
-    <div class="btn-row" style="margin-top:0.75rem;">
-      <button class="primary" id="btn-connect" onclick="connect()">Connect</button>
-      <button id="btn-disconnect" disabled onclick="disconnect()">Disconnect</button>
-    </div>
-    <p class="note">Requires Chrome or Edge. Connect the ESP32 via USB, then click Connect.</p>
-  </div>
-
-  <!-- Ball Counter -->
-  <div class="card">
-    <h2>Ball Count</h2>
-    <div class="ball-display" id="ball-count">0</div>
-    <div class="btn-row">
-      <button onclick="resetCount()">Reset</button>
-    </div>
-  </div>
-
-  <!-- LEDs -->
-  <div class="card">
-    <h2>LEDs</h2>
-    <div class="btn-row" style="margin-bottom:0.5rem;">
-      <button id="led-red"    class="led-red"    disabled onclick="sendLed('RED')">Red</button>
-      <button id="led-blue"   class="led-blue"   disabled onclick="sendLed('BLUE')">Blue</button>
-      <button id="led-green"  class="led-green"  disabled onclick="sendLed('GREEN')">Green</button>
-      <button id="led-purple" class="led-purple" disabled onclick="sendLed('PURPLE')">Purple</button>
-      <button id="led-off"                       disabled onclick="sendLed('OFF')">Off</button>
-    </div>
-    <div class="btn-row" style="margin-bottom:0.5rem;">
-      <button id="led-chase_red"  class="led-red"  disabled onclick="sendLed('CHASE_RED')">Chase Red</button>
-      <button id="led-chase_blue" class="led-blue" disabled onclick="sendLed('CHASE_BLUE')">Chase Blue</button>
-    </div>
-    <div class="btn-row">
-      <button id="led-pulse_red"  class="led-red"  disabled onclick="sendLed('PULSE_RED')">Pulse Red</button>
-      <button id="led-pulse_blue" class="led-blue" disabled onclick="sendLed('PULSE_BLUE')">Pulse Blue</button>
-    </div>
-  </div>
-
-  <!-- Motors -->
-  <div class="card">
-    <h2>Motors</h2>
-    <div class="btn-row">
-      <button id="motor-on"  disabled onclick="sendMotor('ON')">On</button>
-      <button id="motor-off" disabled onclick="sendMotor('OFF')">Off</button>
-    </div>
-  </div>
-
-  <!-- Display -->
-  <div class="card">
-    <h2>Display</h2>
-    <div style="display:flex;gap:2rem;align-items:flex-end;">
-      <div>
-        <label for="shift-input" style="display:block;font-size:0.75rem;color:var(--muted);margin-bottom:0.4rem;">Shift</label>
-        <input type="number" id="shift-input" min="0" max="9" value="0" disabled oninput="onShiftChange(this)">
+  <!-- Header bar: title + serial controls -->
+  <header class="app-header">
+    <h1>FlexHub</h1>
+    <div class="header-serial">
+      <div class="status-row">
+        <div class="dot" id="dot"></div>
+        <span id="status-text">Not connected</span>
       </div>
-      <div>
-        <label for="clock-input" style="display:block;font-size:0.75rem;color:var(--muted);margin-bottom:0.4rem;">Clock</label>
-        <input type="number" id="clock-input" min="0" max="99" value="0" disabled oninput="onClockChange(this)">
+      <div class="btn-row">
+        <button class="primary" id="btn-connect" onclick="connect()">Connect</button>
+        <button id="btn-disconnect" disabled onclick="disconnect()">Disconnect</button>
       </div>
     </div>
-  </div>
+    <span class="header-note">Requires Chrome or Edge</span>
+  </header>
+
+  <div class="main-layout">
+
+    <!-- ── Left column: operational controls ─────────────────────────── -->
+    <aside class="controls-col">
+
+      <!-- Ball Counter -->
+      <div class="card">
+        <h2>Ball Count</h2>
+        <div class="ball-display" id="ball-count">0</div>
+        <div class="btn-row">
+          <button onclick="resetCount()">Reset</button>
+        </div>
+      </div>
+
+      <!-- LEDs -->
+      <div class="card">
+        <h2>LEDs</h2>
+        <div class="btn-row" style="margin-bottom:0.4rem;">
+          <button id="led-red"    class="led-red"    disabled onclick="sendLed('RED')">Red</button>
+          <button id="led-blue"   class="led-blue"   disabled onclick="sendLed('BLUE')">Blue</button>
+          <button id="led-green"  class="led-green"  disabled onclick="sendLed('GREEN')">Green</button>
+          <button id="led-purple" class="led-purple" disabled onclick="sendLed('PURPLE')">Purple</button>
+          <button id="led-off"                       disabled onclick="sendLed('OFF')">Off</button>
+        </div>
+        <div class="btn-row" style="margin-bottom:0.4rem;">
+          <button id="led-chase_red"  class="led-red"  disabled onclick="sendLed('CHASE_RED')">Chase Red</button>
+          <button id="led-chase_blue" class="led-blue" disabled onclick="sendLed('CHASE_BLUE')">Chase Blue</button>
+        </div>
+        <div class="btn-row">
+          <button id="led-pulse_red"  class="led-red"  disabled onclick="sendLed('PULSE_RED')">Pulse Red</button>
+          <button id="led-pulse_blue" class="led-blue" disabled onclick="sendLed('PULSE_BLUE')">Pulse Blue</button>
+        </div>
+      </div>
+
+      <!-- Motors -->
+      <div class="card">
+        <h2>Motors</h2>
+        <div class="btn-row">
+          <button id="motor-on"  disabled onclick="sendMotor('ON')">On</button>
+          <button id="motor-off" disabled onclick="sendMotor('OFF')">Off</button>
+        </div>
+      </div>
+
+      <!-- Display -->
+      <div class="card">
+        <h2>Display</h2>
+        <div style="display:flex;gap:1.5rem;align-items:flex-end;">
+          <div>
+            <label for="shift-input" style="display:block;font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem;">Shift</label>
+            <input type="number" id="shift-input" min="0" max="9" value="0" disabled oninput="onShiftChange(this)">
+          </div>
+          <div>
+            <label for="clock-input" style="display:block;font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem;">Clock</label>
+            <input type="number" id="clock-input" min="0" max="99" value="0" disabled oninput="onClockChange(this)">
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ── Right: analysis area ───────────────────────────────────────── -->
+    <div class="analysis-area">
+
+      <!-- Filter settings + Waveform -->
+      <div class="analysis-bottom">
+
+        <!-- Filter Settings & Metrics -->
+        <div class="card filter-col">
+          <h2>Filter Settings</h2>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
+            <label for="viz-alpha-slider" style="font-size:0.82rem;font-weight:500;">Smoothing (α)</label>
+            <input type="number" id="viz-alpha-input" min="0.001" max="1.000" step="0.001" value="0.050" oninput="vizAlphaInputChanged(this)">
+          </div>
+          <input type="range" id="viz-alpha-slider" min="0.001" max="1.000" step="0.001" value="0.050" oninput="vizSliderChanged(this)">
+          <div style="display:flex;justify-content:space-between;font-size:0.63rem;color:var(--muted);margin-bottom:0.6rem;">
+            <span>0.001 (Heavy)</span><span>0.500</span><span>1.000 (None)</span>
+          </div>
+
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.65rem;font-size:0.73rem;color:var(--muted);margin-bottom:0.6rem;">
+            τ ≈ <strong id="viz-tau" style="color:var(--yellow);">20.0 ms</strong>
+            — 63% step response time
+          </div>
+
+          <div class="viz-metrics">
+            <div class="viz-metric-box">
+              <div class="viz-metric-label">Raw Transitions</div>
+              <div class="viz-metric-value" id="viz-raw-count" style="color:#6366f1;">0</div>
+            </div>
+            <div class="viz-metric-box">
+              <div class="viz-metric-label">Filtered Output</div>
+              <div class="viz-metric-value" id="viz-filtered-count" style="color:#10b981;">0</div>
+            </div>
+          </div>
+          <div class="viz-metric-box" style="margin-top:0.4rem;">
+            <div style="display:flex;justify-content:space-between;font-size:0.73rem;">
+              <span style="color:var(--muted);">Bounces Ignored</span>
+              <span id="viz-rejected-count" style="color:var(--yellow);font-weight:700;font-family:monospace;">0</span>
+            </div>
+            <div class="viz-bar-bg"><div class="viz-bar-fill" id="viz-bar-fill"></div></div>
+          </div>
+        </div>
+
+        <!-- Waveform + Transitions -->
+        <div class="card waveform-col">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+            <h2 style="margin-bottom:0;">Waveform</h2>
+            <div class="btn-row">
+              <button id="btn-debug" disabled onclick="toggleDebug()">Enable Debug</button>
+              <button onclick="clearDebugLog()">Clear</button>
+              <span style="width:1px;background:var(--border);align-self:stretch;margin:0 0.15rem;"></span>
+              <button onclick="vizZoomIn()">Zoom In</button>
+              <button onclick="vizZoomOut()">Zoom Out</button>
+              <button onclick="vizResetZoom(); vizDraw();">Fit</button>
+            </div>
+          </div>
+
+          <div class="viz-canvas-wrap">
+            <canvas id="viz-canvas"></canvas>
+            <div id="viz-tooltip">
+              <div class="tt-row" style="font-family:monospace;font-weight:700;margin-bottom:0.2rem;">
+                <span style="color:var(--muted);">Time</span>
+                <span id="viz-tt-time">—</span>
+              </div>
+              <div class="tt-sep"></div>
+              <div class="tt-row"><span style="color:#6366f1;">Raw</span><span id="viz-tt-raw" style="font-family:monospace;font-weight:700;">—</span></div>
+              <div class="tt-row"><span style="color:#f59e0b;">LPF y[t]</span><span id="viz-tt-lpf" style="font-family:monospace;font-weight:700;color:#f59e0b;">—</span></div>
+              <div class="tt-row"><span style="color:#10b981;">Output</span><span id="viz-tt-deb" style="font-family:monospace;font-weight:700;">—</span></div>
+            </div>
+            <div id="viz-no-data">Enable debug mode and capture events</div>
+          </div>
+
+          <div style="display:flex;gap:1rem;font-size:0.65rem;color:var(--muted);margin-top:0.4rem;align-items:center;">
+            <span><span style="display:inline-block;width:12px;height:2px;background:#6366f1;vertical-align:middle;margin-right:3px;border-radius:1px;"></span>Raw</span>
+            <span><span style="display:inline-block;width:12px;height:2px;background:#f59e0b;vertical-align:middle;margin-right:3px;border-radius:1px;"></span>LPF y[t]</span>
+            <span><span style="display:inline-block;width:12px;height:2px;background:#10b981;vertical-align:middle;margin-right:3px;border-radius:1px;"></span>Debounced</span>
+            <span style="margin-left:auto;">Scroll = zoom · Drag = pan</span>
+          </div>
+
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:0.6rem;margin-bottom:0;">
+            <h2 style="margin-bottom:0;">Transitions</h2>
+            <span id="viz-table-stats" style="font-size:0.65rem;color:var(--muted);font-family:monospace;"></span>
+          </div>
+          <div class="viz-table-wrap">
+            <table class="viz-table">
+              <thead><tr>
+                <th>#</th><th>Timestamp</th><th>+Offset</th><th>Edge</th><th>Δ</th><th>Decision</th>
+              </tr></thead>
+              <tbody id="viz-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- .analysis-bottom -->
+    </div><!-- .analysis-area -->
+  </div><!-- .main-layout -->
 
   <script>
     let port     = null;
@@ -220,9 +421,17 @@
       document.getElementById('status-text').textContent = on ? 'Connected' : 'Not connected';
       document.getElementById('btn-connect').disabled    = on;
       document.getElementById('btn-disconnect').disabled = !on;
-      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off','shift-input','clock-input'];
+      const controls = ['led-red','led-blue','led-green','led-purple','led-off','led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue','motor-on','motor-off','shift-input','clock-input','btn-debug'];
       controls.forEach(id => document.getElementById(id).disabled = !on);
-      if (!on) clearActiveButtons();
+      if (!on) {
+        clearActiveButtons();
+        if (debugEnabled) {
+          debugEnabled = false;
+          const btn = document.getElementById('btn-debug');
+          btn.textContent = 'Enable Debug';
+          btn.classList.remove('active');
+        }
+      }
     }
 
     function clearActiveButtons() {
@@ -304,6 +513,8 @@
       if (line === 'EVT:BALL') {
         ballCount++;
         updateBallDisplay();
+      } else if (line === 'EVT:BALL_RISE' || line === 'EVT:BALL_FALL') {
+        appendDebugEvent(line);
       }
     }
 
@@ -336,6 +547,41 @@
       document.getElementById('ball-count').textContent = '0';
     }
 
+    // ---- Debug ---------------------------------------------------------------
+
+    let debugEnabled = false;
+    const debugLines = [];
+
+    function toggleDebug() {
+      debugEnabled = !debugEnabled;
+      send(debugEnabled ? 'CMD:DEBUG:ON' : 'CMD:DEBUG:OFF');
+      const btn = document.getElementById('btn-debug');
+      btn.textContent = debugEnabled ? 'Disable Debug' : 'Enable Debug';
+      btn.classList.toggle('active', debugEnabled);
+    }
+
+    function appendDebugEvent(evt) {
+      const now = new Date();
+      const ts = now.toTimeString().slice(0, 8) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      debugLines.push(`${ts}  ${evt}`);
+      const isFirst = debugLines.length === 1;
+      vizParseAndProcess(debugLines.join('\n'));
+      if (isFirst) vizResetZoom();
+      vizProcessData();
+    }
+
+    function clearDebugLog() {
+      debugLines.length = 0;
+      vizRawEvents = [];
+      vizLpfArray = null;
+      vizComputedDebounce = [];
+      vizCalcBounds();
+      vizResetZoom();
+      document.getElementById('viz-table-body').innerHTML = '';
+      document.getElementById('viz-table-stats').textContent = '';
+      vizProcessData();
+    }
+
     // ---- Display -------------------------------------------------------------
 
     function onShiftChange(el) {
@@ -349,6 +595,329 @@
       el.value = v;
       send('CMD:DISPLAY:CLOCK:' + v);
     }
+
+    // ---- Visualizer ---------------------------------------------------------------
+
+
+    let vizRawEvents = [];
+    let vizAlpha = 0.050;
+    let vizDataMinX = 0, vizDataMaxX = 1000;
+    let vizViewMinX = 0, vizViewMaxX = 1000;
+    let vizLpfArray = null;
+    let vizComputedDebounce = [];
+    let vizCanvas, vizCtx;
+    let vizIsPanning = false, vizPanStartX = 0, vizViewMinXAtStart = 0, vizViewMaxXAtStart = 0;
+    let vizMouseX = -1;
+
+    function vizInit() {
+      vizCanvas = document.getElementById('viz-canvas');
+      vizCtx = vizCanvas.getContext('2d');
+      vizSetupListeners();
+      vizProcessData();
+      vizResizeCanvas();
+    }
+
+    function vizParseAndProcess(text) {
+      const lines = text.split('\n');
+      const parsed = [];
+      let altState = 1;
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        const m = line.match(/(\d{1,2}):(\d{2}):(\d{2})\.(\d{3})/);
+        if (m) {
+          const totalMs = ((parseInt(m[1],10)*3600 + parseInt(m[2],10)*60 + parseInt(m[3],10)) * 1000) + parseInt(m[4],10);
+          let val = line.includes('RISE')||line.includes('HIGH')||line.includes(' ON ')||line.includes('TRUE') ? 1
+                  : line.includes('FALL')||line.includes('LOW') ||line.includes('OFF') ||line.includes('FALSE') ? 0
+                  : (altState = 1 - altState, 1 - altState);
+          parsed.push({ t: totalMs, val });
+        } else {
+          const num = parseInt(line, 10);
+          if (!isNaN(num)) { parsed.push({ t: num, val: altState }); altState = 1 - altState; }
+        }
+      }
+      parsed.sort((a, b) => a.t - b.t);
+      vizRawEvents = parsed;
+      vizCalcBounds();
+    }
+
+    function vizCalcBounds() {
+      if (!vizRawEvents.length) { vizDataMinX = 0; vizDataMaxX = 1000; return; }
+      vizDataMinX = Math.max(0, vizRawEvents[0].t - 100);
+      vizDataMaxX = vizRawEvents[vizRawEvents.length-1].t + 100;
+    }
+
+    function vizResetZoom() { vizViewMinX = vizDataMinX; vizViewMaxX = vizDataMaxX; }
+
+    function vizRawAt(t) {
+      if (!vizRawEvents.length || t < vizRawEvents[0].t) return 0;
+      let lo = 0, hi = vizRawEvents.length - 1, ans = 0;
+      while (lo <= hi) { const mid = (lo+hi)>>1; if (vizRawEvents[mid].t <= t) { ans = vizRawEvents[mid].val; lo = mid+1; } else hi = mid-1; }
+      return ans;
+    }
+
+    function vizComputeDebounce() {
+      const size = vizDataMaxX - vizDataMinX + 1;
+      if (size <= 0 || !vizRawEvents.length) { vizComputedDebounce = []; vizLpfArray = null; return; }
+      vizLpfArray = new Float32Array(size);
+      vizComputedDebounce = [];
+      let y = 0, d = 0, rawIdx = 0, raw = 0;
+      for (let i = 0; i < size; i++) {
+        const t = vizDataMinX + i;
+        while (rawIdx < vizRawEvents.length && vizRawEvents[rawIdx].t <= t) { raw = vizRawEvents[rawIdx].val; rawIdx++; }
+        y = vizAlpha * raw + (1.0 - vizAlpha) * y;
+        vizLpfArray[i] = y;
+        const nd = y >= 0.5 ? 1 : 0;
+        if (nd !== d) { d = nd; vizComputedDebounce.push({ t, state: d }); }
+      }
+    }
+
+    function vizDebAt(t) {
+      if (!vizComputedDebounce.length || t < vizComputedDebounce[0].t) return 0;
+      let lo = 0, hi = vizComputedDebounce.length - 1, ans = 0;
+      while (lo <= hi) { const mid = (lo+hi)>>1; if (vizComputedDebounce[mid].t <= t) { ans = vizComputedDebounce[mid].state; lo = mid+1; } else hi = mid-1; }
+      return ans;
+    }
+
+    function vizLpfAt(t) {
+      if (!vizLpfArray) return 0;
+      const idx = Math.floor(t) - vizDataMinX;
+      if (idx < 0) return 0;
+      if (idx >= vizLpfArray.length) return vizLpfArray[vizLpfArray.length-1];
+      return vizLpfArray[idx];
+    }
+
+    function vizProcessData() {
+      document.getElementById('viz-no-data').style.display = vizRawEvents.length ? 'none' : 'flex';
+      if (!vizRawEvents.length) return;
+      vizComputeDebounce();
+      vizUpdateMetrics();
+      vizRenderTable();
+      vizDraw();
+    }
+
+    function vizUpdateMetrics() {
+      const raw = vizRawEvents.length;
+      const filt = vizComputedDebounce.length;
+      const rej = Math.max(0, raw - filt);
+      const pct = raw > 0 ? Math.round(rej / raw * 100) : 0;
+      document.getElementById('viz-raw-count').textContent = raw;
+      document.getElementById('viz-filtered-count').textContent = filt;
+      document.getElementById('viz-rejected-count').textContent = `${rej} (${pct}%)`;
+      document.getElementById('viz-bar-fill').style.width = `${pct}%`;
+      document.getElementById('viz-table-stats').textContent = `${raw} raw / ${filt} filtered`;
+    }
+
+    function vizFmtTime(ms) {
+      const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), p = (n,w=2)=>String(n).padStart(w,'0');
+      return `${p(h)}:${p(m)}:${p(s%60)}.${p(ms%1000,3)}`;
+    }
+
+    function vizRenderTable() {
+      const tbody = document.getElementById('viz-table-body');
+      tbody.innerHTML = '';
+      vizRawEvents.forEach((ev, i) => {
+        const delta = i > 0 ? ev.t - vizRawEvents[i-1].t : 0;
+        const rel = ev.t - vizRawEvents[0].t;
+        const match = vizComputedDebounce.find(d => d.state === ev.val && d.t >= ev.t && d.t <= ev.t + 1000);
+        const edgeHtml = ev.val === 1
+          ? `<span class="viz-badge viz-badge-rise">▲ RISE</span>`
+          : `<span class="viz-badge viz-badge-fall">▼ FALL</span>`;
+        const decHtml = match
+          ? `<span class="viz-badge viz-badge-pass">Pass +${match.t - ev.t}ms</span>`
+          : `<span class="viz-badge viz-badge-bounce">Bounce</span>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="color:var(--muted);text-align:center;">${i+1}</td>
+          <td>${vizFmtTime(ev.t)}</td>
+          <td style="color:var(--muted);">+${rel}ms</td>
+          <td style="text-align:center;">${edgeHtml}</td>
+          <td style="color:var(--muted);text-align:right;">${i > 0 ? delta+'ms' : '—'}</td>
+          <td style="text-align:center;">${decHtml}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function vizPxToT(px) {
+      const dw = vizCanvas.width / (window.devicePixelRatio||1);
+      return vizViewMinX + (px / dw) * (vizViewMaxX - vizViewMinX);
+    }
+    function vizTtoPx(t) {
+      const dw = vizCanvas.width / (window.devicePixelRatio||1);
+      return ((t - vizViewMinX) / (vizViewMaxX - vizViewMinX)) * dw;
+    }
+    function vizLaneY(state, lane) {
+      const dh = vizCanvas.height / (window.devicePixelRatio||1);
+      const top = lane === 0 ? dh * 0.09 : dh * 0.52;
+      return state === 1 ? top : top + dh * 0.32;
+    }
+
+    function vizTickSpacing(min, max) {
+      const r = max - min;
+      if (r <= 50) return 5; if (r <= 200) return 20; if (r <= 500) return 50;
+      if (r <= 1500) return 100; if (r <= 3000) return 250; if (r <= 6000) return 500; return 1000;
+    }
+
+    function vizDrawStep(accessor, color, lw, lane) {
+      const dw = vizCanvas.width / (window.devicePixelRatio||1);
+      vizCtx.strokeStyle = color; vizCtx.lineWidth = lw; vizCtx.lineCap = 'round';
+      vizCtx.beginPath();
+      let first = true, lastY = 0;
+      for (let px = 0; px <= dw; px++) {
+        const py = vizLaneY(accessor(vizPxToT(px)), lane);
+        if (first) { vizCtx.moveTo(px, py); first = false; }
+        else { if (py !== lastY) vizCtx.lineTo(px, lastY); vizCtx.lineTo(px, py); }
+        lastY = py;
+      }
+      vizCtx.stroke();
+    }
+
+    function vizDrawLPF(dh, dw) {
+      const lTop = dh*0.52, lBot = dh*0.84, lH = lBot - lTop;
+      vizCtx.strokeStyle = 'rgba(245,158,11,0.8)'; vizCtx.lineWidth = 1.5;
+      vizCtx.beginPath();
+      let first = true;
+      for (let px = 0; px <= dw; px++) {
+        const py = lBot - vizLpfAt(vizPxToT(px)) * lH;
+        if (first) { vizCtx.moveTo(px, py); first = false; } else vizCtx.lineTo(px, py);
+      }
+      vizCtx.stroke();
+    }
+
+    function vizDrawThresh(dh, dw) {
+      const lTop = dh*0.52, lBot = dh*0.84, lH = lBot - lTop;
+      const y50 = lBot - 0.5*lH;
+      vizCtx.save(); vizCtx.setLineDash([4,4]); vizCtx.lineWidth = 1;
+      vizCtx.strokeStyle = 'rgba(245,158,11,0.4)';
+      vizCtx.beginPath(); vizCtx.moveTo(0,y50); vizCtx.lineTo(dw,y50); vizCtx.stroke();
+      vizCtx.font = '8px monospace'; vizCtx.textAlign = 'left';
+      vizCtx.fillStyle = 'rgba(245,158,11,0.7)'; vizCtx.fillText('50%', 6, y50-3);
+      vizCtx.restore();
+    }
+
+    function vizDraw() {
+      if (!vizCanvas || !vizCtx || !vizRawEvents.length) return;
+      const dpr = window.devicePixelRatio||1;
+      const dw = vizCanvas.width/dpr, dh = vizCanvas.height/dpr;
+
+      vizCtx.fillStyle = '#020617'; vizCtx.fillRect(0,0,dw,dh);
+      vizCtx.fillStyle = '#0f172a';
+      vizCtx.fillRect(0, dh*0.09, dw, dh*0.32);
+      vizCtx.fillRect(0, dh*0.52, dw, dh*0.32);
+
+      vizCtx.font = 'bold 9px monospace'; vizCtx.textAlign = 'left';
+      vizCtx.fillStyle = '#6366f1'; vizCtx.fillText('RAW INPUT', 6, dh*0.075);
+      vizCtx.fillStyle = '#10b981'; vizCtx.fillText(`FILTERED  (α=${vizAlpha.toFixed(3)})`, 6, dh*0.505);
+
+      const tick = vizTickSpacing(vizViewMinX, vizViewMaxX);
+      const start = Math.ceil(vizViewMinX/tick)*tick;
+      vizCtx.strokeStyle = '#1e293b'; vizCtx.fillStyle = '#475569';
+      vizCtx.font = '8px monospace'; vizCtx.textAlign = 'center'; vizCtx.lineWidth = 1;
+      for (let t = start; t <= vizViewMaxX; t += tick) {
+        const x = vizTtoPx(t);
+        vizCtx.beginPath(); vizCtx.moveTo(x,0); vizCtx.lineTo(x,dh); vizCtx.stroke();
+        vizCtx.fillText(vizFmtTime(t), x, dh-4);
+      }
+
+      vizDrawStep(vizRawAt, '#6366f1', 2, 0);
+      vizDrawLPF(dh, dw);
+      vizDrawThresh(dh, dw);
+      vizDrawStep(vizDebAt, '#10b981', 2.5, 1);
+
+      if (vizMouseX >= 0 && vizMouseX <= dw) {
+        const hT = Math.round(vizPxToT(vizMouseX));
+        const rv = vizRawAt(hT), lv = vizLpfAt(hT), dv = vizDebAt(hT);
+
+        vizCtx.strokeStyle = 'rgba(255,255,255,0.2)'; vizCtx.lineWidth = 1.5;
+        vizCtx.setLineDash([4,4]);
+        vizCtx.beginPath(); vizCtx.moveTo(vizMouseX,0); vizCtx.lineTo(vizMouseX,dh); vizCtx.stroke();
+        vizCtx.setLineDash([]);
+
+        const lTop = dh*0.52, lBot = dh*0.84;
+        const lpfY = lBot - lv*(lBot-lTop);
+        vizCtx.fillStyle='#6366f1'; vizCtx.beginPath(); vizCtx.arc(vizMouseX, vizLaneY(rv,0), 4, 0, Math.PI*2); vizCtx.fill();
+        vizCtx.fillStyle='#f59e0b'; vizCtx.beginPath(); vizCtx.arc(vizMouseX, lpfY, 4, 0, Math.PI*2); vizCtx.fill();
+        vizCtx.fillStyle='#10b981'; vizCtx.beginPath(); vizCtx.arc(vizMouseX, vizLaneY(dv,1), 3.5, 0, Math.PI*2); vizCtx.fill();
+
+        const tt = document.getElementById('viz-tooltip');
+        tt.style.display = 'block';
+        tt.style.left  = vizMouseX > dw*0.6 ? 'auto' : `${vizMouseX+12}px`;
+        tt.style.right = vizMouseX > dw*0.6 ? `${dw-vizMouseX+12}px` : 'auto';
+        document.getElementById('viz-tt-time').textContent = vizFmtTime(hT);
+        const ttRaw = document.getElementById('viz-tt-raw');
+        ttRaw.textContent = rv === 1 ? 'HIGH' : 'LOW';
+        ttRaw.style.color = rv === 1 ? '#6366f1' : '#7d8590';
+        document.getElementById('viz-tt-lpf').textContent = `${(lv*100).toFixed(1)}%`;
+        const ttDeb = document.getElementById('viz-tt-deb');
+        ttDeb.textContent = dv === 1 ? 'HIGH' : 'LOW';
+        ttDeb.style.color = dv === 1 ? '#10b981' : '#7d8590';
+      } else {
+        document.getElementById('viz-tooltip').style.display = 'none';
+      }
+    }
+
+    function vizResizeCanvas() {
+      if (!vizCanvas) return;
+      const dpr = window.devicePixelRatio||1;
+      const r = vizCanvas.getBoundingClientRect();
+      vizCanvas.width = r.width*dpr; vizCanvas.height = r.height*dpr;
+      vizCtx.scale(dpr, dpr);
+      vizDraw();
+    }
+
+    function vizSetupListeners() {
+      vizCanvas.addEventListener('mousedown', e => {
+        vizIsPanning = true; vizPanStartX = e.clientX;
+        vizViewMinXAtStart = vizViewMinX; vizViewMaxXAtStart = vizViewMaxX;
+        vizCanvas.style.cursor = 'grabbing';
+      });
+      window.addEventListener('mouseup', () => { vizIsPanning = false; if(vizCanvas) vizCanvas.style.cursor='ew-resize'; });
+      vizCanvas.addEventListener('mousemove', e => {
+        const rect = vizCanvas.getBoundingClientRect();
+        vizMouseX = e.clientX - rect.left;
+        if (vizIsPanning) {
+          const dw = vizCanvas.width/(window.devicePixelRatio||1);
+          const dt = ((e.clientX - vizPanStartX)/dw)*(vizViewMaxXAtStart - vizViewMinXAtStart);
+          vizViewMinX = vizViewMinXAtStart - dt; vizViewMaxX = vizViewMaxXAtStart - dt;
+        }
+        vizDraw();
+      });
+      vizCanvas.addEventListener('mouseleave', () => { vizMouseX = -1; vizDraw(); });
+      vizCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const rect = vizCanvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const f = e.deltaY > 0 ? 1.15 : 0.85;
+        const hT = vizPxToT(mx);
+        vizViewMinX = hT - (hT - vizViewMinX)*f;
+        vizViewMaxX = hT + (vizViewMaxX - hT)*f;
+        const minSpan = 5;
+        if (vizViewMaxX - vizViewMinX < minSpan) { const c=(vizViewMinX+vizViewMaxX)/2; vizViewMinX=c-minSpan/2; vizViewMaxX=c+minSpan/2; }
+        vizDraw();
+      }, { passive: false });
+      window.addEventListener('resize', vizResizeCanvas);
+    }
+
+    function vizAlphaInputChanged(el) {
+      let v = parseFloat(el.value);
+      if (isNaN(v)) v = 0.05;
+      v = Math.max(0.001, Math.min(1.0, v));
+      vizAlpha = v; el.value = v.toFixed(3);
+      document.getElementById('viz-alpha-slider').value = v;
+      document.getElementById('viz-tau').textContent = `${(1/v).toFixed(1)} ms`;
+      vizProcessData();
+    }
+
+    function vizSliderChanged(el) {
+      vizAlpha = parseFloat(el.value);
+      document.getElementById('viz-alpha-input').value = vizAlpha.toFixed(3);
+      document.getElementById('viz-tau').textContent = `${(1/vizAlpha).toFixed(1)} ms`;
+      vizProcessData();
+    }
+
+    function vizZoomIn()  { const c=(vizViewMinX+vizViewMaxX)/2, h=(vizViewMaxX-vizViewMinX)/2*0.7; vizViewMinX=c-h; vizViewMaxX=c+h; vizDraw(); }
+    function vizZoomOut() { const c=(vizViewMinX+vizViewMaxX)/2, h=(vizViewMaxX-vizViewMinX)/2*1.3; vizViewMinX=c-h; vizViewMaxX=c+h; vizDraw(); }
+
+    vizInit();
   </script>
 </body>
 </html>

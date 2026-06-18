@@ -17,9 +17,13 @@
  *   CMD:MOTOR:OFF           — motors off
  *   CMD:DISPLAY:SHIFT:n     — leftmost digit, 0–9
  *   CMD:DISPLAY:CLOCK:nn    — rightmost two digits, 0–99
+ *   CMD:DEBUG:ON            — enable debug mode (raw edge events)
+ *   CMD:DEBUG:OFF           — disable debug mode
  *
  * ESP32 → HTML:
- *   EVT:BALL           — one ball counted (sent once per beam-break falling edge)
+ *   EVT:BALL           — one ball counted (filtered rises back above 50% — sensor returns HIGH after ball passes)
+ *   EVT:BALL_RISE      — raw sensor rising edge  (debug mode only)
+ *   EVT:BALL_FALL      — raw sensor falling edge (debug mode only)
  */
 
 #include "USB.h"
@@ -33,10 +37,11 @@ static const uint8_t LED_PIN = 8;
 static const uint8_t PIN_SENSOR = 9;
 static const uint8_t PIN_I2C_SDA_HK16 = 4;
 static const uint8_t PIN_I2C_SCL_HK16 = 5;
-static const uint32_t DEBOUNCE_MS = 50;
+static const float SENSOR_TAU_US = 50000.0f;  // EMA time constant in microseconds
 static const uint32_t CHASE_STEP_MS = 35;  // ms per chase frame
 static const uint8_t TAIL_LENGTH = 12;     // white comet tail pixels
 static const uint32_t PULSE_STEP_MS = 16;  // ~60fps for smooth pulse
+static const float motorValue = 0.6f;
 
 // --- Hardware ---
 CRGB leds[LED_COUNT];
@@ -44,8 +49,11 @@ NoU_Motor motor1(1);
 NoU_Motor motor2(2);
 
 // --- Sensor state ---
-bool lastSensorState;
-uint32_t lastChangeTime;
+float    sensorFiltered;
+bool     sensorAbove;     // which side of 0.5 the filtered value was on last sample
+uint32_t lastSensorUs;    // micros() at last checkBallSensor call, for dt-aware EMA
+bool     lastRawSensor = false;   // raw sensor state last sample, for debug edge detection
+bool     debugMode = false;
 
 // --- LED mode ---
 enum LedMode {
@@ -191,7 +199,7 @@ void displayUpdate() {
 // ---------------------------------------------------------------------------
 
 void setMotors(bool on) {
-  float speed = on ? 1.0f : 0.0f;
+  float speed = on ? motorValue : 0.0f;
   motor1.set(speed);
   motor2.set(speed);
 }
@@ -234,6 +242,10 @@ void processCommand(const String& cmd) {
   } else if (cmd.startsWith("CMD:DISPLAY:CLOCK:")) {
     displayClock = (uint8_t)constrain(cmd.substring(18).toInt(), 0, 99);
     displayUpdate();
+  } else if (cmd == "CMD:DEBUG:ON") {
+    debugMode = true;
+  } else if (cmd == "CMD:DEBUG:OFF") {
+    debugMode = false;
   }
 }
 
@@ -250,16 +262,25 @@ void readSerial() {
   }
 }
 
-void checkSensors() {
-  uint32_t now = millis();
-  bool state = (bool)digitalRead(PIN_SENSOR);
-  if (state != lastSensorState && (now - lastChangeTime) >= DEBOUNCE_MS) {
-    lastChangeTime = now;
-    if (state == LOW) {  // falling edge = beam broken = ball
-      Serial.println("EVT:BALL");
-    }
-    lastSensorState = state;
+void checkBallSensor() {
+  uint32_t now = micros();
+  float dt = (float)(now - lastSensorUs);
+  lastSensorUs = now;
+
+  bool raw = (bool)digitalRead(PIN_SENSOR);
+
+  if (debugMode && raw != lastRawSensor) {
+    Serial.println(raw ? "EVT:BALL_RISE" : "EVT:BALL_FALL");
   }
+  lastRawSensor = raw;
+
+  // dt-aware EMA: alpha = dt / (tau + dt)
+  float alpha = dt / (SENSOR_TAU_US + dt);
+  sensorFiltered = alpha * (raw ? 1.0f : 0.0f) + (1.0f - alpha) * sensorFiltered;
+
+  bool above = sensorFiltered >= 0.5f;
+  if (above && !sensorAbove) Serial.println("EVT:BALL");
+  sensorAbove = above;
 }
 
 // ---------------------------------------------------------------------------
@@ -279,8 +300,10 @@ void setup() {
   FastLED.show();
 
   pinMode(PIN_SENSOR, INPUT_PULLDOWN);
-  lastSensorState = (bool)digitalRead(PIN_SENSOR);
-  lastChangeTime = 0;
+  lastRawSensor  = (bool)digitalRead(PIN_SENSOR);
+  sensorFiltered = lastRawSensor ? 1.0f : 0.0f;
+  sensorAbove    = lastRawSensor;
+  lastSensorUs   = micros();
 
   setMotors(false);
   displayInit();
@@ -288,7 +311,7 @@ void setup() {
 
 void loop() {
   readSerial();
-  checkSensors();
+  checkBallSensor();
 
   switch (currentLedMode) {
     case LED_CHASE_RED:
