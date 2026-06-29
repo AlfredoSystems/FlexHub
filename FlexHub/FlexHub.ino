@@ -42,7 +42,7 @@ static const uint8_t PIN_I2C_SCL_HK16 = 5;
 static const uint32_t CHASE_STEP_MS = 35;  // ms per chase frame
 static const uint8_t TAIL_LENGTH = 12;     // white comet tail pixels
 static const uint32_t PULSE_STEP_MS = 16;  // ~60fps for smooth pulse
-static const float motorValue = 0.6f;
+static const float motorValue = 0.9f;
 
 // --- Hardware ---
 CRGB leds[LED_COUNT];
