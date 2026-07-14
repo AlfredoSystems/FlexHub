@@ -251,20 +251,20 @@
         <h2>Filter Settings</h2>
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
-          <label for="viz-alpha-slider" style="font-size:0.82rem;font-weight:500;">Smoothing (α)</label>
-          <input type="number" id="viz-alpha-input" min="0.001" max="1.000" step="0.001" value="0.050" oninput="onAlphaInput(this)">
+          <label for="viz-tau-slider" style="font-size:0.82rem;font-weight:500;">Time Constant (τ ms)</label>
+          <input type="number" id="viz-tau-input" min="1" max="500" step="1" value="10" oninput="onTauLive(this)" onchange="onTauCommit(this)">
         </div>
-        <input type="range" id="viz-alpha-slider" min="0.001" max="1.000" step="0.001" value="0.050" oninput="onAlphaSlider(this)">
+        <input type="range" id="viz-tau-slider" min="1" max="500" step="1" value="10" oninput="onTauSlider(this)">
         <div style="display:flex;justify-content:space-between;font-size:0.63rem;color:var(--muted);margin-bottom:0.4rem;">
-          <span>0.001 (Heavy)</span><span>1.000 (None)</span>
+          <span>1ms (Fast)</span><span>500ms (Slow)</span>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.65rem;font-size:0.73rem;color:var(--muted);margin-bottom:0.75rem;">
-          τ ≈ <strong id="viz-tau" style="color:var(--yellow);">20.0</strong> samples
+          f<sub>c</sub> ≈ <strong id="viz-fc" style="color:var(--yellow);">15.9</strong> Hz
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
           <label for="viz-hyst-slider" style="font-size:0.82rem;font-weight:500;">Hysteresis</label>
-          <input type="number" id="viz-hyst-input" min="0" max="0.45" step="0.01" value="0.00" oninput="onHystInput(this)">
+          <input type="number" id="viz-hyst-input" min="0" max="0.45" step="0.01" value="0.00" oninput="onHystLive(this)" onchange="onHystCommit(this)">
         </div>
         <input type="range" id="viz-hyst-slider" min="0" max="0.45" step="0.01" value="0" oninput="onHystSlider(this)">
         <div style="display:flex;justify-content:space-between;font-size:0.63rem;color:var(--muted);margin-bottom:0.4rem;">
@@ -274,6 +274,10 @@
           Rise at <strong id="viz-hyst-hi" style="color:var(--green);">50%</strong>
           &nbsp;·&nbsp;
           Fall at <strong id="viz-hyst-lo" style="color:var(--red);">50%</strong>
+        </div>
+        <div class="btn-row" style="margin-top:0.65rem;">
+          <button id="btn-filter-read" disabled onclick="readFilterSettings()">Read</button>
+          <button id="btn-filter-write" disabled onclick="writeFilterSettings()">Write</button>
         </div>
       </div>
 
@@ -337,7 +341,8 @@
       const controls = [
         'led-red','led-blue','led-green','led-purple','led-off',
         'led-chase_red','led-chase_blue','led-pulse_red','led-pulse_blue',
-        'motor-on','motor-off','shift-input','clock-input','btn-debug'
+        'motor-on','motor-off','shift-input','clock-input','btn-debug',
+        'btn-filter-read','btn-filter-write'
       ];
       controls.forEach(id => document.getElementById(id).disabled = !on);
       if (!on) {
@@ -418,6 +423,23 @@
       } else if (line.startsWith('DBG:')) {
         const p = line.slice(4).split(',');
         if (p.length === 3) addDbgPoint(parseInt(p[0]), parseFloat(p[1]), parseInt(p[2]));
+      } else if (line.startsWith('CONF:')) {
+        const p = line.slice(5).split(',');
+        if (p.length === 2) {
+          const tau = parseFloat(p[0]), h = parseFloat(p[1]);
+          if (!isNaN(tau)) {
+            vizTau = Math.max(1, Math.min(500, tau));
+            document.getElementById('viz-tau-input').value = vizTau.toFixed(0);
+            document.getElementById('viz-tau-slider').value = vizTau;
+            updateFcDisplay(vizTau);
+          }
+          if (!isNaN(h)) {
+            vizHysteresis = Math.max(0, Math.min(0.45, h));
+            document.getElementById('viz-hyst-input').value = vizHysteresis.toFixed(2);
+            document.getElementById('viz-hyst-slider').value = vizHysteresis;
+            updateHystDisplay();
+          }
+        }
       }
     }
 
@@ -463,31 +485,53 @@
     }
 
     // ── Filter settings ───────────────────────────────────────────────────────
-    let vizAlpha = 0.050;
+    let vizTau = 10;
     let vizHysteresis = 0.0;
 
-    function onAlphaInput(el) {
+    function updateFcDisplay(tau) {
+      document.getElementById('viz-fc').textContent = (1000 / (2 * Math.PI * Math.max(0.001, tau))).toFixed(1);
+    }
+
+    function onTauLive(el) {
+      const v = parseFloat(el.value);
+      if (isNaN(v)) return;
+      document.getElementById('viz-tau-slider').value = v;
+      updateFcDisplay(v);
+    }
+
+    function onTauCommit(el) {
       let v = parseFloat(el.value);
-      if (isNaN(v)) v = 0.05;
-      v = Math.max(0.001, Math.min(1.0, v));
-      vizAlpha = v; el.value = v.toFixed(3);
-      document.getElementById('viz-alpha-slider').value = v;
-      document.getElementById('viz-tau').textContent = (1 / v).toFixed(1);
-      send('CMD:SENSOR:ALPHA:' + v.toFixed(3));
+      if (isNaN(v)) v = 10;
+      v = Math.max(1, Math.min(500, v));
+      vizTau = v;
+      el.value = v.toFixed(0);
+      document.getElementById('viz-tau-slider').value = v;
+      updateFcDisplay(v);
+      send('CMD:SENSOR:TAU:' + v.toFixed(1));
     }
 
-    function onAlphaSlider(el) {
-      vizAlpha = parseFloat(el.value);
-      document.getElementById('viz-alpha-input').value = vizAlpha.toFixed(3);
-      document.getElementById('viz-tau').textContent = (1 / vizAlpha).toFixed(1);
-      send('CMD:SENSOR:ALPHA:' + vizAlpha.toFixed(3));
+    function onTauSlider(el) {
+      vizTau = parseFloat(el.value);
+      document.getElementById('viz-tau-input').value = vizTau.toFixed(0);
+      updateFcDisplay(vizTau);
+      send('CMD:SENSOR:TAU:' + vizTau.toFixed(1));
     }
 
-    function onHystInput(el) {
+    function onHystLive(el) {
+      const v = parseFloat(el.value);
+      if (isNaN(v)) return;
+      document.getElementById('viz-hyst-slider').value = v;
+      const clamped = Math.max(0, Math.min(0.45, v));
+      document.getElementById('viz-hyst-hi').textContent = Math.round((0.5 + clamped) * 100) + '%';
+      document.getElementById('viz-hyst-lo').textContent = Math.round((0.5 - clamped) * 100) + '%';
+    }
+
+    function onHystCommit(el) {
       let v = parseFloat(el.value);
       if (isNaN(v)) v = 0;
       v = Math.max(0, Math.min(0.45, v));
-      vizHysteresis = v; el.value = v.toFixed(2);
+      vizHysteresis = v;
+      el.value = v.toFixed(2);
       document.getElementById('viz-hyst-slider').value = v;
       updateHystDisplay();
       send('CMD:SENSOR:HYSTERESIS:' + v.toFixed(3));
@@ -503,6 +547,12 @@
     function updateHystDisplay() {
       document.getElementById('viz-hyst-hi').textContent = Math.round((0.5 + vizHysteresis) * 100) + '%';
       document.getElementById('viz-hyst-lo').textContent = Math.round((0.5 - vizHysteresis) * 100) + '%';
+    }
+
+    function readFilterSettings()  { send('CMD:SENSOR:GET'); }
+    function writeFilterSettings() {
+      send('CMD:SENSOR:TAU:' + vizTau.toFixed(1));
+      send('CMD:SENSOR:HYSTERESIS:' + vizHysteresis.toFixed(3));
     }
 
     // ── Streamed sensor data ───────────────────────────────────────────────────

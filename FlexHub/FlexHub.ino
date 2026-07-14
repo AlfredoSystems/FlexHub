@@ -19,12 +19,14 @@
  *   CMD:DISPLAY:CLOCK:nn    — rightmost two digits, 0–99
  *   CMD:DEBUG:ON            — enable debug mode (streams DBG: packets + raw edge events)
  *   CMD:DEBUG:OFF           — disable debug mode
- *   CMD:SENSOR:ALPHA:x.xxx      — EMA smoothing factor (0.001–1.0), saved to NVS
+ *   CMD:SENSOR:TAU:xx.x         — EMA time constant in ms (0.5–2000), saved to NVS
  *   CMD:SENSOR:HYSTERESIS:x.xxx — Schmitt band half-width around 50% (0.0–0.45), saved to NVS
+ *   CMD:SENSOR:GET              — request current tau and hysteresis
  *
  * ESP32 → HTML:
  *   EVT:BALL                — one ball counted (filtered output rising edge)
  *   DBG:raw,filtered,output — 200 Hz sensor stream (debug mode only)
+ *   CONF:tau,hyst           — response to CMD:SENSOR:GET
  */
 
 #include "USB.h"
@@ -52,7 +54,7 @@ NoU_Motor motor2(2);
 // --- Sensor state ---
 float    sensorFiltered;
 bool     sensorAbove;
-float    sensorAlpha = 0.110f;       // EMA smoothing factor, loaded from NVS
+float    sensorTau = 10.0f;           // EMA time constant in ms, loaded from NVS
 float    sensorHysteresis = 0.25f;   // Schmitt band half-width, loaded from NVS
 bool     debugMode = false;
 uint32_t lastDebugStreamUs = 0;
@@ -212,8 +214,8 @@ void setMotors(bool on) {
 void savePrefs() {
   Preferences prefs;
   prefs.begin("flexhub", false);
-  prefs.putFloat("alpha", sensorAlpha);
-  prefs.putFloat("hyst",  sensorHysteresis);
+  prefs.putFloat("tau",  sensorTau);
+  prefs.putFloat("hyst", sensorHysteresis);
   prefs.end();
 }
 
@@ -259,12 +261,17 @@ void processCommand(const String& cmd) {
     debugMode = true;
   } else if (cmd == "CMD:DEBUG:OFF") {
     debugMode = false;
-  } else if (cmd.startsWith("CMD:SENSOR:ALPHA:")) {
-    sensorAlpha = constrain(cmd.substring(17).toFloat(), 0.001f, 1.0f);
+  } else if (cmd.startsWith("CMD:SENSOR:TAU:")) {
+    sensorTau = constrain(cmd.substring(15).toFloat(), 0.5f, 2000.0f);
     savePrefs();
   } else if (cmd.startsWith("CMD:SENSOR:HYSTERESIS:")) {
     sensorHysteresis = constrain(cmd.substring(22).toFloat(), 0.0f, 0.45f);
     savePrefs();
+  } else if (cmd == "CMD:SENSOR:GET") {
+    Serial.print("CONF:");
+    Serial.print(sensorTau, 2);
+    Serial.print(',');
+    Serial.println(sensorHysteresis, 4);
   }
 }
 
@@ -282,9 +289,15 @@ void readSerial() {
 }
 
 void checkBallSensor() {
-  bool raw = (bool)digitalRead(PIN_SENSOR);
+  static uint32_t lastSensorUs = 0;
+  uint32_t nowUs = micros();
+  float dt = (float)(nowUs - lastSensorUs) * 0.001f;  // µs → ms
+  if (dt > 50.0f) dt = 50.0f;                         // clamp first call / stalls
+  lastSensorUs = nowUs;
 
-  sensorFiltered = sensorAlpha * (raw ? 1.0f : 0.0f) + (1.0f - sensorAlpha) * sensorFiltered;
+  bool raw = (bool)digitalRead(PIN_SENSOR);
+  float a = dt / (sensorTau + dt);
+  sensorFiltered = a * (raw ? 1.0f : 0.0f) + (1.0f - a) * sensorFiltered;
 
   float hi = 0.5f + sensorHysteresis;
   float lo = 0.5f - sensorHysteresis;
@@ -324,8 +337,8 @@ void setup() {
 
   Preferences prefs;
   prefs.begin("flexhub", true);
-  sensorAlpha       = prefs.getFloat("alpha", 0.05f);
-  sensorHysteresis  = prefs.getFloat("hyst",  0.0f);
+  sensorTau        = prefs.getFloat("tau",  10.0f);
+  sensorHysteresis = prefs.getFloat("hyst",  0.0f);
   prefs.end();
 
   pinMode(PIN_SENSOR, INPUT_PULLDOWN);
