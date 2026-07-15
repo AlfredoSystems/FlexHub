@@ -81,6 +81,7 @@ uint32_t lastChaseStep = 0;
 // --- Pulse animation state ---
 CRGB pulseColor = CRGB::Red;
 uint32_t lastPulseStep = 0;
+uint32_t pulseStartMs = 0;  // set when pulse command arrives, phases the heartbeat
 
 // --- HT16K33 display ---
 // Layout: [SHIFT] [off] [CLOCK tens] [CLOCK ones]  — digit 1 and colon always dark
@@ -139,7 +140,7 @@ void updateChase() {
 // Two-beat pattern (lub-dub) with a pause: total period 900ms
 
 uint8_t heartbeatBrightness() {
-  uint32_t t = millis() % 900;
+  uint32_t t = (millis() - pulseStartMs) % 900;
   if (t < 80) return (uint8_t)(t * 255 / 80);                 // beat 1 rise
   if (t < 180) return (uint8_t)(255 - (t - 80) * 180 / 100);  // beat 1 fall → 75
   if (t < 260) return (uint8_t)(75 + (t - 180) * 180 / 80);   // beat 2 rise
@@ -150,6 +151,7 @@ uint8_t heartbeatBrightness() {
 void startPulse(CRGB color) {
   pulseColor = color;
   lastPulseStep = 0;
+  pulseStartMs = millis();  // begin the cycle at t=0 from this moment
 }
 
 void updatePulse() {
