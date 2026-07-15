@@ -49,13 +49,15 @@
       display: flex;
       flex: 1;
       min-height: 0;
-      gap: 0.75rem;
+      gap: 0;
       padding: 0.75rem;
       overflow: hidden;
     }
 
     .controls-col {
-      width: 240px;
+      width: 300px;
+      min-width: 180px;
+      max-width: 600px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -63,6 +65,27 @@
       overflow-y: auto;
       overflow-x: hidden;
     }
+
+    .col-resizer {
+      width: 9px;
+      flex-shrink: 0;
+      cursor: col-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .col-resizer::after {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 40px;
+      border-radius: 2px;
+      background: var(--border);
+      transition: background 0.15s;
+    }
+    .col-resizer:hover::after,
+    .col-resizer.dragging::after { background: var(--accent); }
 
     .analysis-area {
       flex: 1;
@@ -252,14 +275,17 @@
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
           <label for="viz-tau-slider" style="font-size:0.82rem;font-weight:500;">Time Constant (τ ms)</label>
-          <input type="number" id="viz-tau-input" min="1" max="500" step="1" value="10" oninput="onTauLive(this)" onchange="onTauCommit(this)">
+          <input type="number" id="viz-tau-input" min="1" max="50" step="1" value="10" oninput="onTauLive(this)" onchange="onTauCommit(this)">
         </div>
-        <input type="range" id="viz-tau-slider" min="1" max="500" step="1" value="10" oninput="onTauSlider(this)">
+        <input type="range" id="viz-tau-slider" min="1" max="50" step="1" value="10" oninput="onTauSlider(this)">
         <div style="display:flex;justify-content:space-between;font-size:0.63rem;color:var(--muted);margin-bottom:0.4rem;">
-          <span>1ms (Fast)</span><span>500ms (Slow)</span>
+          <span>1ms (Fast)</span><span>50ms (Slow)</span>
         </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.65rem;font-size:0.73rem;color:var(--muted);margin-bottom:0.75rem;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.65rem;font-size:0.73rem;color:var(--muted);margin-bottom:0.4rem;">
           f<sub>c</sub> ≈ <strong id="viz-fc" style="color:var(--yellow);">15.9</strong> Hz
+        </div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.75rem;">
+          Device: <span id="mcu-tau-val">—</span>
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
@@ -270,18 +296,23 @@
         <div style="display:flex;justify-content:space-between;font-size:0.63rem;color:var(--muted);margin-bottom:0.4rem;">
           <span>0.00 (Off)</span><span>0.45</span>
         </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.65rem;font-size:0.73rem;color:var(--muted);">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.65rem;font-size:0.73rem;color:var(--muted);margin-bottom:0.4rem;">
           Rise at <strong id="viz-hyst-hi" style="color:var(--green);">50%</strong>
           &nbsp;·&nbsp;
           Fall at <strong id="viz-hyst-lo" style="color:var(--red);">50%</strong>
         </div>
-        <div class="btn-row" style="margin-top:0.65rem;">
+        <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.65rem;">
+          Device: <span id="mcu-hyst-val">—</span>
+        </div>
+        <div class="btn-row">
           <button id="btn-filter-read" disabled onclick="readFilterSettings()">Read</button>
           <button id="btn-filter-write" disabled onclick="writeFilterSettings()">Write</button>
         </div>
       </div>
 
     </aside>
+
+    <div class="col-resizer" id="col-resizer"></div>
 
     <!-- ── Waveform ──────────────────────────────────────────────────────── -->
     <div class="analysis-area">
@@ -428,25 +459,41 @@
         if (p.length === 2) {
           const tau = parseFloat(p[0]), h = parseFloat(p[1]);
           if (!isNaN(tau)) {
+            mcuTau = tau;
             vizTau = Math.max(1, Math.min(500, tau));
             document.getElementById('viz-tau-input').value = vizTau.toFixed(0);
             document.getElementById('viz-tau-slider').value = vizTau;
             updateFcDisplay(vizTau);
           }
           if (!isNaN(h)) {
+            mcuHyst = h;
             vizHysteresis = Math.max(0, Math.min(0.45, h));
             document.getElementById('viz-hyst-input').value = vizHysteresis.toFixed(2);
             document.getElementById('viz-hyst-slider').value = vizHysteresis;
             updateHystDisplay();
           }
+          updateMcuDisplay();
         }
       }
     }
 
-    async function send(cmd) {
-      if (!port || !port.writable) return;
-      const w = port.writable.getWriter();
-      try { await w.write(new TextEncoder().encode(cmd + '\n')); } finally { w.releaseLock(); }
+    const _sendQueue = [];
+    let _sendBusy = false;
+
+    function send(cmd) {
+      _sendQueue.push(cmd);
+      if (!_sendBusy) _drainSendQueue();
+    }
+
+    async function _drainSendQueue() {
+      _sendBusy = true;
+      while (_sendQueue.length > 0) {
+        const cmd = _sendQueue.shift();
+        if (!port || !port.writable) { _sendQueue.length = 0; break; }
+        const w = port.writable.getWriter();
+        try { await w.write(new TextEncoder().encode(cmd + '\n')); } catch (_) {} finally { w.releaseLock(); }
+      }
+      _sendBusy = false;
     }
 
     // ── Controls ──────────────────────────────────────────────────────────────
@@ -487,9 +534,34 @@
     // ── Filter settings ───────────────────────────────────────────────────────
     let vizTau = 10;
     let vizHysteresis = 0.0;
+    let mcuTau = null;
+    let mcuHyst = null;
 
     function updateFcDisplay(tau) {
       document.getElementById('viz-fc').textContent = (1000 / (2 * Math.PI * Math.max(0.001, tau))).toFixed(1);
+    }
+
+    function updateMcuDisplay() {
+      const tauEl  = document.getElementById('mcu-tau-val');
+      const hystEl = document.getElementById('mcu-hyst-val');
+      const yellow = 'var(--yellow)';
+      const muted  = 'var(--muted)';
+
+      if (mcuTau === null) {
+        tauEl.textContent = '—';
+        tauEl.style.color = muted;
+      } else {
+        tauEl.textContent = mcuTau.toFixed(1) + ' ms';
+        tauEl.style.color = Math.abs(mcuTau - vizTau) > 0.5 ? yellow : muted;
+      }
+
+      if (mcuHyst === null) {
+        hystEl.textContent = '—';
+        hystEl.style.color = muted;
+      } else {
+        hystEl.textContent = mcuHyst.toFixed(3);
+        hystEl.style.color = Math.abs(mcuHyst - vizHysteresis) > 0.005 ? yellow : muted;
+      }
     }
 
     function onTauLive(el) {
@@ -497,24 +569,25 @@
       if (isNaN(v)) return;
       document.getElementById('viz-tau-slider').value = v;
       updateFcDisplay(v);
+      updateMcuDisplay();
     }
 
     function onTauCommit(el) {
       let v = parseFloat(el.value);
       if (isNaN(v)) v = 10;
-      v = Math.max(1, Math.min(500, v));
+      v = Math.max(1, Math.min(50, v));
       vizTau = v;
       el.value = v.toFixed(0);
       document.getElementById('viz-tau-slider').value = v;
       updateFcDisplay(v);
-      send('CMD:SENSOR:TAU:' + v.toFixed(1));
+      updateMcuDisplay();
     }
 
     function onTauSlider(el) {
       vizTau = parseFloat(el.value);
       document.getElementById('viz-tau-input').value = vizTau.toFixed(0);
       updateFcDisplay(vizTau);
-      send('CMD:SENSOR:TAU:' + vizTau.toFixed(1));
+      updateMcuDisplay();
     }
 
     function onHystLive(el) {
@@ -524,6 +597,7 @@
       const clamped = Math.max(0, Math.min(0.45, v));
       document.getElementById('viz-hyst-hi').textContent = Math.round((0.5 + clamped) * 100) + '%';
       document.getElementById('viz-hyst-lo').textContent = Math.round((0.5 - clamped) * 100) + '%';
+      updateMcuDisplay();
     }
 
     function onHystCommit(el) {
@@ -534,14 +608,14 @@
       el.value = v.toFixed(2);
       document.getElementById('viz-hyst-slider').value = v;
       updateHystDisplay();
-      send('CMD:SENSOR:HYSTERESIS:' + v.toFixed(3));
+      updateMcuDisplay();
     }
 
     function onHystSlider(el) {
       vizHysteresis = parseFloat(el.value);
       document.getElementById('viz-hyst-input').value = vizHysteresis.toFixed(2);
       updateHystDisplay();
-      send('CMD:SENSOR:HYSTERESIS:' + vizHysteresis.toFixed(3));
+      updateMcuDisplay();
     }
 
     function updateHystDisplay() {
@@ -549,8 +623,11 @@
       document.getElementById('viz-hyst-lo').textContent = Math.round((0.5 - vizHysteresis) * 100) + '%';
     }
 
-    function readFilterSettings()  { send('CMD:SENSOR:GET'); }
+    function readFilterSettings() { send('CMD:SENSOR:GET'); }
     function writeFilterSettings() {
+      mcuTau  = vizTau;
+      mcuHyst = vizHysteresis;
+      updateMcuDisplay();
       send('CMD:SENSOR:TAU:' + vizTau.toFixed(1));
       send('CMD:SENSOR:HYSTERESIS:' + vizHysteresis.toFixed(3));
     }
@@ -823,6 +900,36 @@
     function vizZoomOut() { vizAutoFollow = false; const c=(vizViewMinX+vizViewMaxX)/2, h=(vizViewMaxX-vizViewMinX)/2*1.3; vizViewMinX=c-h; vizViewMaxX=c+h; vizDraw(); }
 
     vizInit();
+
+    // ── Column resizer ────────────────────────────────────────────────────────
+    (function() {
+      const handle = document.getElementById('col-resizer');
+      const col    = document.querySelector('.controls-col');
+      let startX, startW;
+
+      handle.addEventListener('mousedown', e => {
+        startX = e.clientX;
+        startW = col.offsetWidth;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        function onMove(e) {
+          const w = Math.min(600, Math.max(180, startW + e.clientX - startX));
+          col.style.width = w + 'px';
+        }
+        function onUp() {
+          handle.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+    })();
   </script>
 </body>
 </html>
